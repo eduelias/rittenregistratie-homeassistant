@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rittenregistratie-homeassistant"
+version = "0.1.0"
+description = "Home Assistant plugin for rittenregistratie-bot: log a trip automatically when your car's ignition goes off."
+readme = "README.md"
+license = { text = "MIT" }
+requires-python = ">=3.11"
+dependencies = ["rittenregistratie"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8.0"]
+
+# The whole integration with the core: one callable, called at startup with the
+# core's EventBus. Enable per car in cars.yaml: event_plugins: ["homeassistant"].
+[project.entry-points."rittenregistratie.events"]
+homeassistant = "rittenregistratie_homeassistant:register"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["rittenregistratie_homeassistant*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

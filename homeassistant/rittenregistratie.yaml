@@ -1,0 +1,71 @@
+# Home Assistant package for rittenregistratie-bot.
+# Put this file in <config>/packages/ (with `homeassistant: packages: !include_dir_named packages`)
+# and add to secrets.yaml:
+#   rittenregistratie_hook_url: "http://192.168.2.68:8000/hooks/homeassistant/mercedes"
+#   rittenregistratie_hook_secret: "<the RIT_HOOK_SECRET from the bot's .env>"
+# Replace the entity ids below with your car's (Developer tools → States).
+
+input_number:
+  rittenregistratie_start_odometer:
+    name: RittenRegistratie start odometer
+    min: 0
+    max: 2000000
+    step: 1
+    mode: box
+    unit_of_measurement: km
+
+rest_command:
+  rittenregistratie_trip_ended:
+    url: !secret rittenregistratie_hook_url
+    method: POST
+    timeout: 20
+    headers:
+      X-Hook-Secret: !secret rittenregistratie_hook_secret
+    content_type: "application/json"
+    payload: >-
+      {"event": "trip_ended",
+       "odometer": "{{ states('sensor.frontyard_mercedes_cla_250e_w1k5m8fb9tn569539_odometer') }}",
+       "start_odometer": "{{ states('input_number.rittenregistratie_start_odometer') | int(0) }}",
+       "lat": "{{ state_attr('device_tracker.frontyard_mercedes_cla_250e_w1k5m8fb9tn569539_device_tracker', 'latitude') }}",
+       "lon": "{{ state_attr('device_tracker.frontyard_mercedes_cla_250e_w1k5m8fb9tn569539_device_tracker', 'longitude') }}",
+       "zone": "{{ states('device_tracker.frontyard_mercedes_cla_250e_w1k5m8fb9tn569539_device_tracker') }}",
+       "ignition_off": "{{ now().isoformat() }}"}
+
+automation:
+  - id: rittenregistratie_ignition_on
+    alias: "RittenRegistratie: remember odometer at ignition on"
+    mode: single
+    trigger:
+      - platform: state
+        entity_id: sensor.frontyard_mercedes_cla_250e_w1k5m8fb9tn569539_ignition_state
+        to: "4"
+        from:
+          - "0"
+          - "1"
+          - "2"
+          - "5"
+    action:
+      - service: input_number.set_value
+        target:
+          entity_id: input_number.rittenregistratie_start_odometer
+        data:
+          value: "{{ states('sensor.frontyard_mercedes_cla_250e_w1k5m8fb9tn569539_odometer') | int(0) }}"
+
+  - id: rittenregistratie_ignition_off
+    alias: "RittenRegistratie: log trip at ignition off"
+    mode: restart
+    trigger:
+      - platform: state
+        entity_id: sensor.frontyard_mercedes_cla_250e_w1k5m8fb9tn569539_ignition_state
+        to: "0"
+        from:
+          - "4"
+          - "2"
+    action:
+      # Let the last odometer/position update land before reporting.
+      - delay: "00:02:00"
+      - condition: template
+        value_template: >-
+          {{ states('sensor.frontyard_mercedes_cla_250e_w1k5m8fb9tn569539_odometer')
+             not in ['unavailable', 'unknown', 'none', ''] }}
+      - service: rest_command.rittenregistratie_trip_ended
