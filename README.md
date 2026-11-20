@@ -45,8 +45,8 @@ Give known locations coordinates so trips resolve to them:
 
 ```yaml
 # config/locations.yaml
-home: { address: "Buitenhof 128, Almere", lat: 52.3702, lon: 5.2147 }
-spg:  { address: "Waldorpstraat 3, Den Haag", lat: 52.0781, lon: 4.3168 }
+home:   { address: "Dam 1, Amsterdam", lat: 52.3731, lon: 4.8926 }          # example values
+office: { address: "Stationsplein 1, Utrecht", lat: 52.0894, lon: 5.1100 }
 ```
 
 Restart the bot. The bot must be reachable from Home Assistant (bind to your LAN
@@ -55,7 +55,9 @@ address, not only localhost).
 ## Home Assistant side
 
 Copy [`homeassistant/rittenregistratie.yaml`](homeassistant/rittenregistratie.yaml) to
-`<config>/packages/`, replace the entity ids with your car's, and add to `secrets.yaml`:
+`<config>/packages/`, replace the placeholder entity ids (`sensor.my_car_odometer`,
+`sensor.my_car_ignition_state`, `device_tracker.my_car`) with your car's, and add to
+`secrets.yaml`:
 
 ```yaml
 rittenregistratie_hook_url: "http://<bot-host>:8000/hooks/homeassistant/<car_id>"
@@ -64,18 +66,26 @@ rittenregistratie_hook_secret: "<the same RIT_HOOK_SECRET>"
 
 It defines an `input_number` that remembers the odometer at ignition on, a
 `rest_command` that posts the trip, and two automations: one at ignition on, one at
-ignition off (with a two-minute settle so the last odometer and position update land).
+ignition off.
+
+The ignition-off automation notes the stored start odometer and the moment the ignition
+went off, waits two minutes so the last odometer and position update land, and posts only
+if the ignition is still off. A car switched on again within those two minutes is still on
+its trip, so nothing is posted until it is switched off and stays off. The row carries the
+ignition-off time, not the time of the post.
 
 ## What the bot receives
 
 ```json
 {"event": "trip_ended", "odometer": "20756", "start_odometer": "20672",
- "lat": "52.3702", "lon": "5.2147", "zone": "home",
- "ignition_off": "2026-09-03T17:23:02+02:00"}
+ "lat": "52.3731", "lon": "4.8926", "zone": "home",
+ "ignition_off": "2026-09-03T15:23:02.512345+00:00"}
 ```
 
 Only `odometer` is required. Home Assistant placeholders (`unavailable`, `unknown`)
-are treated as absent; `not_home` carries no place and is dropped. A post without a
+are treated as absent; `not_home` carries no place and is dropped. An `ignition_off`
+more than 24 hours old or more than 5 minutes ahead is dropped too, and the bot's own
+clock is used. A post without a
 usable odometer is ignored, and so is a reading that is not above the last logged one,
 so a typed message and an automatic one for the same trip never produce two rows.
 
@@ -84,7 +94,7 @@ so a typed message and an automatic one for the same trip never produce two rows
 ```bash
 curl -X POST http://<bot-host>:8000/hooks/homeassistant/mercedes \
   -H "X-Hook-Secret: $RIT_HOOK_SECRET" -H "Content-Type: application/json" \
-  -d '{"event":"trip_ended","odometer":20757,"zone":"home","lat":52.3702,"lon":5.2147}'
+  -d '{"event":"trip_ended","odometer":20757,"zone":"home","lat":52.3731,"lon":4.8926}'
 ```
 
 A reading equal to the current one answers `{"status": "ignored", ...}`; a higher one
