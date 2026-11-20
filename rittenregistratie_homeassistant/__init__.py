@@ -13,7 +13,7 @@ Expected body (see ``homeassistant/`` for the automation that produces it)::
       "event": "trip_ended",              # anything else is ignored
       "odometer": 20756,                  # required; km at ignition off
       "start_odometer": 20672,            # optional; km at ignition on
-      "lat": 52.3702, "lon": 5.2147,      # optional; end position
+      "lat": 52.3731, "lon": 4.8926,      # optional; end position
       "zone": "home",                     # optional; device_tracker state
       "ignition_on": "2026-09-03T16:16:38+02:00",   # optional, ISO-8601
       "ignition_off": "2026-09-03T17:23:02+02:00"   # optional, ISO-8601

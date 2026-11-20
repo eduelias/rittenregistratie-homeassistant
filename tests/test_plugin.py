@@ -20,11 +20,11 @@ def test_register_subscribes_to_hook_event():
 def test_full_body():
     r = on_hook(_payload({
         "event": "trip_ended", "odometer": "20756", "start_odometer": 20672,
-        "lat": "52.3702", "lon": 5.2147, "zone": "home",
+        "lat": "52.3731", "lon": 4.8926, "zone": "home",
         "ignition_on": "2026-09-03T16:16:38+02:00", "ignition_off": "2026-09-03T17:23:02+02:00",
     }))
     assert r.end_odo == 20756 and r.start_odo == 20672
-    assert (r.latitude, r.longitude) == (52.3702, 5.2147) and r.zone == "home"
+    assert (r.latitude, r.longitude) == (52.3731, 4.8926) and r.zone == "home"
     assert r.source == "homeassistant" and r.raw["odometer"] == "20756"
     assert isinstance(r.ended_at, datetime) and r.ended_at.tzinfo is None
     assert r.started_at < r.ended_at
