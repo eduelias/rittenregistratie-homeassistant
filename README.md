@@ -83,7 +83,9 @@ ignition-off time, not the time of the post.
 ```
 
 Only `odometer` is required. Home Assistant placeholders (`unavailable`, `unknown`)
-are treated as absent; `not_home` carries no place and is dropped. A post without a
+are treated as absent; `not_home` carries no place and is dropped. An `ignition_off`
+more than 24 hours old or more than 5 minutes ahead is dropped too, and the bot's own
+clock is used. A post without a
 usable odometer is ignored, and so is a reading that is not above the last logged one,
 so a typed message and an automatic one for the same trip never produce two rows.
 

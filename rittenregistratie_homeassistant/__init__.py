@@ -20,12 +20,14 @@ Expected body (see ``homeassistant/`` for the automation that produces it)::
     }
 
 Home Assistant's placeholder states ("unavailable", "unknown", "none", "") are
-treated as absent. A body without a usable odometer is ignored.
+treated as absent. A body without a usable odometer is ignored. A timestamp
+more than 24 hours old or more than 5 minutes ahead is dropped, and the core
+uses its own clock.
 """
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any, Optional
 
 from rittenregistratie.events import EventBus, hook_event
@@ -60,7 +62,7 @@ def _int(value: Any) -> Optional[int]:
         return None
     try:
         return int(round(float(text)))
-    except ValueError:
+    except (ValueError, OverflowError):   # OverflowError: "inf", "1e999"
         return None
 
 
@@ -75,7 +77,10 @@ def _float(value: Any) -> Optional[float]:
 
 
 def _local_naive(value: Any) -> Optional[datetime]:
-    """ISO-8601 (aware or naive) → naive local time, as the core stores it."""
+    """ISO-8601 (aware or naive) → naive local time, as the core stores it.
+
+    None when it is not a time this trip can have ended at.
+    """
     text = _clean(value)
     if text is None:
         return None
@@ -85,6 +90,11 @@ def _local_naive(value: Any) -> Optional[datetime]:
         return None
     if dt.tzinfo is not None:
         dt = dt.astimezone().replace(tzinfo=None)
+    # A row dated before the previous one breaks that year's export for good,
+    # so a stamp from a wrong clock is dropped and the core uses its own.
+    now = datetime.now()
+    if not now - timedelta(hours=24) <= dt <= now + timedelta(minutes=5):
+        return None
     return dt
 
 

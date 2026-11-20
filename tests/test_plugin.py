@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from rittenregistratie.events import EventBus, hook_event
 from rittenregistratie.models import VehicleTripReport
@@ -18,10 +18,11 @@ def test_register_subscribes_to_hook_event():
 
 
 def test_full_body():
+    off = datetime.now().astimezone().replace(microsecond=0)
     r = on_hook(_payload({
         "event": "trip_ended", "odometer": "20756", "start_odometer": 20672,
         "lat": "52.3731", "lon": 4.8926, "zone": "home",
-        "ignition_on": "2026-09-03T16:16:38+02:00", "ignition_off": "2026-09-03T17:23:02+02:00",
+        "ignition_on": (off - timedelta(hours=1)).isoformat(), "ignition_off": off.isoformat(),
     }))
     assert r.end_odo == 20756 and r.start_odo == 20672
     assert (r.latitude, r.longitude) == (52.3731, 4.8926) and r.zone == "home"
