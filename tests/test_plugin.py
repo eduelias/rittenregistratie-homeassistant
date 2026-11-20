@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 from rittenregistratie.events import EventBus, hook_event
 from rittenregistratie.models import VehicleTripReport
@@ -43,6 +43,33 @@ def test_ignored_cases():
     assert on_hook(_payload({"odometer": "unavailable", "zone": "home"})) is None
     assert on_hook(_payload({"zone": "home"})) is None
     assert on_hook({"car_id": "x", "plugin": "homeassistant", "body": "text", "headers": {}}) is None
+    assert on_hook(_payload({"odometer": "inf"})) is None
+    assert on_hook(_payload({"odometer": "1e999"})) is None
+
+
+def _ended_at(stamp):
+    return on_hook(_payload({"odometer": 1, "ignition_off": stamp})).ended_at
+
+
+def test_timestamp_forms():
+    now = datetime.now().replace(microsecond=0)
+    aware = now.astimezone()
+    assert _ended_at(now.isoformat()) == now                                    # naive
+    assert _ended_at(aware.isoformat()) == now                                  # with offset
+    utc = aware.astimezone(timezone.utc).isoformat()
+    assert _ended_at(utc.replace("+00:00", "Z")) == now                         # Z
+    assert _ended_at("half past five") is None                                  # garbage
+
+
+def test_timestamp_outside_the_window_is_dropped():
+    now = datetime.now().replace(microsecond=0)
+    assert _ended_at((now - timedelta(hours=23)).isoformat()) is not None
+    assert _ended_at((now - timedelta(hours=25)).isoformat()) is None           # too old
+    assert _ended_at((now + timedelta(minutes=4)).isoformat()) is not None
+    assert _ended_at((now + timedelta(minutes=6)).isoformat()) is None          # in the future
+    aware_old = (now - timedelta(hours=25)).astimezone().isoformat()
+    r = on_hook(_payload({"odometer": 1, "ignition_on": aware_old}))
+    assert r.started_at is None and r.end_odo == 1
 
 
 def test_package_captures_at_ignition_off_and_rechecks_after_the_delay():
