@@ -90,3 +90,8 @@ def test_package_captures_at_ignition_off_and_rechecks_after_the_delay():
     assert post["data"] == {k: "{{ %s }}" % k for k in off["variables"]}
     payload = package["rest_command"]["rittenregistratie_trip_ended"]["payload"]
     assert "{{ start_odometer }}" in payload and "{{ ignition_off }}" in payload
+
+
+def test_a_position_that_is_not_a_number_is_dropped():
+    report = on_hook({"car_id": "c", "body": {"odometer": 150, "lat": "inf", "lon": "nan"}})
+    assert report.end_odo == 150 and report.latitude is None and report.longitude is None

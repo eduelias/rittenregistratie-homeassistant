@@ -60,6 +60,7 @@ automation:
     # single: a second ignition-off inside the settle delay must not restart it
     # with a start odometer that ignition-on has overwritten in between.
     mode: single
+    max_exceeded: silent
     trigger:
       - platform: state
         entity_id: sensor.my_car_ignition_state

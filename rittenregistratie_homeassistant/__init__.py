@@ -27,6 +27,7 @@ uses its own clock.
 from __future__ import annotations
 
 import logging
+import math
 from datetime import datetime, timedelta
 from typing import Any, Optional
 
@@ -71,9 +72,10 @@ def _float(value: Any) -> Optional[float]:
     if text is None:
         return None
     try:
-        return float(text)
+        number = float(text)
     except ValueError:
         return None
+    return number if math.isfinite(number) else None  # "inf" is not a position
 
 
 def _local_naive(value: Any) -> Optional[datetime]:
