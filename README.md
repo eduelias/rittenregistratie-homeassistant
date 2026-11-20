@@ -66,14 +66,20 @@ rittenregistratie_hook_secret: "<the same RIT_HOOK_SECRET>"
 
 It defines an `input_number` that remembers the odometer at ignition on, a
 `rest_command` that posts the trip, and two automations: one at ignition on, one at
-ignition off (with a two-minute settle so the last odometer and position update land).
+ignition off.
+
+The ignition-off automation notes the stored start odometer and the moment the ignition
+went off, waits two minutes so the last odometer and position update land, and posts only
+if the ignition is still off. A car switched on again within those two minutes is still on
+its trip, so nothing is posted until it is switched off and stays off. The row carries the
+ignition-off time, not the time of the post.
 
 ## What the bot receives
 
 ```json
 {"event": "trip_ended", "odometer": "20756", "start_odometer": "20672",
  "lat": "52.3731", "lon": "4.8926", "zone": "home",
- "ignition_off": "2026-09-03T17:23:02+02:00"}
+ "ignition_off": "2026-09-03T15:23:02.512345+00:00"}
 ```
 
 Only `odometer` is required. Home Assistant placeholders (`unavailable`, `unknown`)

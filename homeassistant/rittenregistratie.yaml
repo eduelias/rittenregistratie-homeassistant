@@ -24,14 +24,16 @@ rest_command:
     headers:
       X-Hook-Secret: !secret rittenregistratie_hook_secret
     content_type: "application/json"
+    # start_odometer and ignition_off are passed in by the automation, which
+    # captures them when the ignition goes off, before its settle delay.
     payload: >-
       {"event": "trip_ended",
        "odometer": "{{ states('sensor.my_car_odometer') }}",
-       "start_odometer": "{{ states('input_number.rittenregistratie_start_odometer') | int(0) }}",
+       "start_odometer": "{{ start_odometer }}",
        "lat": "{{ state_attr('device_tracker.my_car', 'latitude') }}",
        "lon": "{{ state_attr('device_tracker.my_car', 'longitude') }}",
        "zone": "{{ states('device_tracker.my_car') }}",
-       "ignition_off": "{{ now().isoformat() }}"}
+       "ignition_off": "{{ ignition_off }}"}
 
 automation:
   - id: rittenregistratie_ignition_on
@@ -55,7 +57,9 @@ automation:
 
   - id: rittenregistratie_ignition_off
     alias: "RittenRegistratie: log trip at ignition off"
-    mode: restart
+    # single: a second ignition-off inside the settle delay must not restart it
+    # with a start odometer that ignition-on has overwritten in between.
+    mode: single
     trigger:
       - platform: state
         entity_id: sensor.my_car_ignition_state
@@ -63,11 +67,21 @@ automation:
         from:
           - "4"
           - "2"
+    # Evaluated when the trigger fires, so before the delay below.
+    variables:
+      start_odometer: "{{ states('input_number.rittenregistratie_start_odometer') | int(0) }}"
+      ignition_off: "{{ trigger.to_state.last_changed.isoformat() }}"
     action:
       # Let the last odometer/position update land before reporting.
       - delay: "00:02:00"
+      # Switched on again and driving: this was not the end of a trip.
+      - condition: template
+        value_template: "{{ is_state('sensor.my_car_ignition_state', '0') }}"
       - condition: template
         value_template: >-
           {{ states('sensor.my_car_odometer')
              not in ['unavailable', 'unknown', 'none', ''] }}
       - service: rest_command.rittenregistratie_trip_ended
+        data:
+          start_odometer: "{{ start_odometer }}"
+          ignition_off: "{{ ignition_off }}"

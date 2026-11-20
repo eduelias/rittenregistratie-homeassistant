@@ -42,3 +42,23 @@ def test_ignored_cases():
     assert on_hook(_payload({"odometer": "unavailable", "zone": "home"})) is None
     assert on_hook(_payload({"zone": "home"})) is None
     assert on_hook({"car_id": "x", "plugin": "homeassistant", "body": "text", "headers": {}}) is None
+
+
+def test_package_captures_at_ignition_off_and_rechecks_after_the_delay():
+    from pathlib import Path
+
+    import yaml
+
+    class Loader(yaml.SafeLoader):
+        pass
+    Loader.add_constructor("!secret", lambda loader, node: node.value)
+    text = (Path(__file__).parent.parent / "homeassistant" / "rittenregistratie.yaml").read_text()
+    package = yaml.load(text, Loader)
+    assert set(package) == {"automation", "rest_command", "input_number"}
+    off = next(a for a in package["automation"] if a["id"] == "rittenregistratie_ignition_off")
+    assert off["mode"] == "single" and set(off["variables"]) == {"start_odometer", "ignition_off"}
+    delay, still_off, _odometer_ok, post = off["action"]
+    assert "delay" in delay and "'0'" in still_off["value_template"]
+    assert post["data"] == {k: "{{ %s }}" % k for k in off["variables"]}
+    payload = package["rest_command"]["rittenregistratie_trip_ended"]["payload"]
+    assert "{{ start_odometer }}" in payload and "{{ ignition_off }}" in payload
